@@ -14,7 +14,7 @@ import (
 //Сохранение рекорда по длине
 //Врезания в себя
 
-type Player struct {
+type Snake struct {
 	points []Point
 }
 
@@ -30,19 +30,19 @@ func CreatePoint() *Point {
 	}
 }
 
-func NewPointWithDelete(player *Player, point *Point) {
-	player.points = append([]Point{*point}, player.points...)
-	player.points = player.points[:len(player.points)-1]
+func (p *Snake) NewPointWithDelete(point *Point) {
+	p.points = append([]Point{*point}, p.points...)
+	p.points = p.points[:len(p.points)-1]
 }
-func NewPointWithApple(player *Player, point *Point, apple *Point) {
-	player.points = append([]Point{*point}, player.points...)
+func (p *Snake) NewPointWithApple(point *Point, apple *Point) {
+	p.points = append([]Point{*point}, p.points...)
 	*apple = *CreatePoint()
 }
 
-func NewField(player *Player, apple *Point) {
+func NewField(Snake *Snake, apple *Point) {
 	for i := range FieldHeight {
 		for j := range FieldWight {
-			if slices.Contains(player.points, Point{j, i}) {
+			if slices.Contains(Snake.points, Point{j, i}) {
 				fmt.Print("🔵")
 			} else if apple.PosX == j && apple.PosY == i {
 				fmt.Print("🍎")
@@ -55,7 +55,7 @@ func NewField(player *Player, apple *Point) {
 }
 
 // Функция устанавливающая в какую сторону повернута змея
-func SetFacing(player *Player, facing *string) {
+func SetFacing(facing *string) {
 	keyboard.Open()
 
 	defer keyboard.Close()
@@ -78,47 +78,53 @@ func SetFacing(player *Player, facing *string) {
 	}
 }
 
-func Moving(player *Player, facing *string, apple *Point) *Point {
-	head := player.points[0]
+func (p *Snake) Moving(facing *string, apple *Point, user *User) *Point {
+	head := p.points[0]
 	switch *facing {
 	case "Up":
 		if head.PosY-1 == apple.PosY && head.PosX == apple.PosX {
-			NewPointWithApple(player, &Point{PosX: apple.PosX, PosY: apple.PosY}, apple)
+			p.NewPointWithApple(&Point{PosX: apple.PosX, PosY: apple.PosY}, apple)
 		} else if head.PosY > 0 {
-			NewPointWithDelete(player, &Point{PosX: head.PosX, PosY: head.PosY - 1})
+			p.NewPointWithDelete(&Point{PosX: head.PosX, PosY: head.PosY - 1})
 		} else {
-			Wall()
+			p.Wall(user)
 		}
 	case "Down":
 		if head.PosY+1 == apple.PosY && head.PosX == apple.PosX {
-			NewPointWithApple(player, &Point{PosX: apple.PosX, PosY: apple.PosY}, apple)
+			p.NewPointWithApple(&Point{PosX: apple.PosX, PosY: apple.PosY}, apple)
 		} else if head.PosY < FieldHeight-1 {
-			NewPointWithDelete(player, &Point{PosX: head.PosX, PosY: head.PosY + 1})
+			p.NewPointWithDelete(&Point{PosX: head.PosX, PosY: head.PosY + 1})
 		} else {
-			Wall()
+			p.Wall(user)
 		}
 	case "Left":
 		if head.PosY == apple.PosY && head.PosX-1 == apple.PosX {
-			NewPointWithApple(player, &Point{PosX: apple.PosX, PosY: apple.PosY}, apple)
+			p.NewPointWithApple(&Point{PosX: apple.PosX, PosY: apple.PosY}, apple)
 		} else if head.PosX > 0 {
-			NewPointWithDelete(player, &Point{PosX: head.PosX - 1, PosY: head.PosY})
+			p.NewPointWithDelete(&Point{PosX: head.PosX - 1, PosY: head.PosY})
 		} else {
-			Wall()
+			p.Wall(user)
 		}
 	case "Right":
 		if head.PosY == apple.PosY && head.PosX+1 == apple.PosX {
-			NewPointWithApple(player, &Point{PosX: apple.PosX, PosY: apple.PosY}, apple)
+			p.NewPointWithApple(&Point{PosX: apple.PosX, PosY: apple.PosY}, apple)
 		} else if head.PosX < FieldWight-1 {
-			NewPointWithDelete(player, &Point{PosX: head.PosX + 1, PosY: head.PosY})
+			p.NewPointWithDelete(&Point{PosX: head.PosX + 1, PosY: head.PosY})
 		} else {
-			Wall()
+			p.Wall(user)
 		}
 	}
 	return apple
 }
 
-func Wall() {
+func (p *Snake) Wall(user *User) {
 	fmt.Println("Для тебя игра окончилась ДРУЖОК, ты в СТЕНЕ")
+	file := Open()
+	if len(p.points) > GetBestScore(user) {
+		user.Score = len(p.points)
+		Encode(user, file)
+	}
+	fmt.Println("Твой результат: ", len(p.points), "\nЛучший результат: ", GetBestScore(user))
 	os.Exit(0)
 }
 
@@ -128,11 +134,12 @@ const (
 )
 
 func main() {
-	player := &Player{points: []Point{{5, 5}}}
+	User := NewUser()
+	Snake := &Snake{points: []Point{{5, 5}}}
 	facing := ""
 	apple := CreatePoint()
 
-	go SetFacing(player, &facing)
+	go SetFacing(&facing)
 
 	fmt.Println("Чтобы начать нажми стрелочку")
 
@@ -140,11 +147,10 @@ func main() {
 	}
 
 	for {
-		fmt.Print("\033[H\033[2J")
 
-		fmt.Println("Длина змейки: ", len(player.points))
-		NewField(player, apple)
-		apple = Moving(player, &facing, apple)
+		fmt.Println("Личный рекорд: ", GetBestScore(User), "\n Длина змейки: ", len(Snake.points), User.Score)
+		NewField(Snake, apple)
+		apple = Snake.Moving(&facing, apple, User)
 
 		time.Sleep(time.Millisecond * 500)
 		fmt.Print("\n")
