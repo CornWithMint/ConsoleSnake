@@ -48,4 +48,24 @@ jobs:
       - name: Upload binaries to release
         uses: softprops/action-gh-release@v1
         with:
-          files: "Console-Snake-*" # Загружает все файлы, начинающиеся с "my-game-"
+          files: "Console-Snake-*" # Загружает все файлы, начинающиеся с "Console-Snake-"
+      # ... (ваши шаги по сборке)
+
+      # Создаём архив и загружаем его
+      - name: Create and Upload Release Archive
+        env:
+          BINARY_NAME: Console-Snake-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.ext }}
+        run: |
+          # Создаём временную директорию для архивации
+          mkdir -p archive_folder
+          # Копируем бинарный файл во временную папку
+          cp "$BINARY_NAME" "archive_folder/$BINARY_NAME"
+          # Переходим в папку и создаём архив
+          cd archive_folder
+          tar -czvf "../$BINARY_NAME.tar.gz" "$BINARY_NAME"
+
+      # Загружаем архив (измените путь в 'files')
+      - name: Upload binaries to release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: "Console-Snake-*.tar.gz"
